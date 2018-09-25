@@ -3,11 +3,15 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
-from model import get_trail_data,model_tfidf,get_recommendations
-
+from model import model_tfidf,get_recommendations,model_tfidf_num_cat,model_tfidf_num,model_tfidf_cat
+from etl import get_trail_data,clean_ft,clean_grades,convert_ft_mi,get_clean_data
 # Query SQL
 trail_data,indices = get_trail_data()
-cosine_sim = model_tfidf(trail_data)
+trail_data = get_clean_data(trail_data)
+#cosine_sim = model_tfidf(trail_data)
+cosine_sim = model_tfidf_num_cat(trail_data)
+#cosine_sim = model_tfidf_num(trail_data)
+#cosine_sim = model_tfidf_cat(trail_data)
 
 
 def shrink_table(df_trail):

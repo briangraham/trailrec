@@ -1,90 +1,10 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
-import psycopg2 
-import io
+from sklearn.preprocessing import StandardScaler,OneHotEncoder,LabelBinarizer
 
-def get_trail_data():
-    # Query SQL trail table
-    conn = psycopg2.connect("host=localhost dbname=trailrec user=briangraham")
-    cur = conn.cursor()
-    sql_query = """
-    SELECT * FROM trails;
-    """
-    trail_data = pd.read_sql_query(sql_query,conn)
-    
-    #reset indices
-    trail_data = trail_data.reset_index()
-    # reverse map trail names to indices
-    indices = pd.Series(trail_data.index, index=trail_data['trail_id'])
-    
-    return trail_data,indices
-
-def clean_ft(col):
-    col = col.str.replace(' ft','').str.replace(',','')
-    col = pd.to_numeric(col)
-    return col
-
-def clean_grades(col):
-    col = col.str.replace('%','')
-    col = pd.to_numeric(col)
-    return col
-
-def convert_ft_mi(series):
-    split_str = series.str.replace(',','').str.split()
-    newcol = []
-    for row in split_str:
-        if row:
-            if row[1] == 'ft':
-                newcol.append(pd.to_numeric(row[0])/5280)
-            else:
-                newcol.append(pd.to_numeric(row[0]))
-        else:
-            newcol.append(pd.to_numeric(''))
-    return newcol
-
-def get_clean_data(trail_data):
-    trail_data['Difficulty rating'] = trail_data['Difficulty rating'].str.replace('rate','')
-    trail_data['Global Ranking'] = trail_data['Global Ranking'].str.replace('#','')
-    trail_data['Riding area'] = trail_data['Riding area'].str.replace(', British Columbia','')
-    trail_data['Riding area'] = trail_data.apply(lambda x: x['Riding area'].replace(x['city'],'',1),axis=1)
-    
-    ft_clean = ['Altitude change','Altitude end','Altitude max','Altitude min','Altitude start','climb','descent']
-    for col in ft_clean:
-        trail_data[col] = clean_ft(trail_data[col])
-        
-    per = ['Grade','Grade max','Grade min']
-    for col in per:
-        trail_data[col] = clean_grades(trail_data[col])
-        
-    ft_or_mi = ['distance','Distance climb','Distance down','Distance flat']
-    for measure in ft_or_mi:
-        trail_data[measure] = convert_ft_mi(trail_data[measure])
-    
-    return trail_data
-
-def model_tfidf(trail_data):
-    #vectorize
-    tfidf = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = tfidf.fit_transform(trail_data['description'])
-    
-    # dot product to get cosine sim
-    cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
-    return cosine_sim
-
-def model_count_vect(trail_data):
-    count = CountVectorizer(stop_words='english')
-    count_matrix = count.fit_transform(trail_data['description'])
-    cosine_sim = cosine_similarity(count_matrix, count_matrix)
-    return cosine_sim
-    
-def get_recommendations(trail_data, trail_id,indices,cosine_sim):
+def get_recommendations(trail_data,trail_id,indices,cosine_sim):
     idx = indices[trail_id]
     
     # Get the pairwsie similarity scores of all trails with that trail
@@ -101,3 +21,76 @@ def get_recommendations(trail_data, trail_id,indices,cosine_sim):
     
     input_data = trail_data.iloc[[indices[trail_id]]]
     return trail_data.iloc[trail_indices],input_data
+
+def model_tfidf(trail_data):
+    #vectorize
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(trail_data['description'])
+    
+    # dot product to get cosine sim
+    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+    return cosine_sim
+
+def model_count_vect(trail_data):
+    count = CountVectorizer(stop_words='english')
+    count_matrix = count.fit_transform(trail_data['description'])
+    cosine_sim = cosine_similarity(count_matrix, count_matrix)
+    return cosine_sim
+
+def model_tfidf_cat(trail_data):
+    # vectorize and scale difficulty (categorical)
+    trail_data_cat = trail_data[['Difficulty rating']]
+    trail_data_cat = trail_data_cat.apply(lambda x: x.str.replace(' ','')).astype('category')    
+    enc = LabelBinarizer().fit(trail_data_cat)
+    df_cat = enc.transform(trail_data_cat)
+    scaler_cat = StandardScaler().fit(df_cat)
+    df_cat_scaled = scaler_cat.transform(df_cat)
+    
+    # vectorize text data
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(trail_data['description']).toarray()
+    
+    # concatenate and get similarity
+    all_features = np.concatenate([tfidf_matrix,df_cat_scaled],axis=1)
+    cosine_sim = cosine_similarity(all_features, all_features)
+    return cosine_sim
+def model_tfidf_num(trail_data):
+    # scale numerical data (continuous)
+    trail_data_numerical = trail_data[['Altitude end','Altitude start',
+                                       'Grade max','climb', 'descent',
+                                       'distance','rating']]
+    scaler_num = StandardScaler().fit(trail_data_numerical)
+    df_num_scaled = scaler_num.transform(trail_data_numerical)
+    
+    # vectorize text data
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(trail_data['description']).toarray()
+    
+    # concatenate and get similarity
+    all_features = np.concatenate([tfidf_matrix,df_num_scaled],axis=1)
+    cosine_sim = cosine_similarity(all_features, all_features)
+    return cosine_sim
+def model_tfidf_num_cat(trail_data):
+    # vectorize and scale difficulty (categorical)
+    trail_data_cat = trail_data[['Difficulty rating']]
+    trail_data_cat = trail_data_cat.apply(lambda x: x.str.replace(' ','')).astype('category')    
+    enc = LabelBinarizer().fit(trail_data_cat)
+    df_cat = enc.transform(trail_data_cat)
+    scaler_cat = StandardScaler().fit(df_cat)
+    df_cat_scaled = scaler_cat.transform(df_cat)
+    
+    # scale numerical data (continuous)
+    trail_data_numerical = trail_data[['Altitude end','Altitude start',
+                                       'Grade max','climb', 'descent',
+                                       'distance','rating']]
+    scaler_num = StandardScaler().fit(trail_data_numerical)
+    df_num_scaled = scaler_num.transform(trail_data_numerical)
+    
+    # vectorize text data
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(trail_data['description']).toarray()
+    
+    # concatenate and get similarity
+    all_features = np.concatenate([tfidf_matrix,df_cat_scaled,df_num_scaled],axis=1)
+    cosine_sim = cosine_similarity(all_features, all_features)
+    return cosine_sim
