@@ -11,8 +11,8 @@ cosine_sim = model_tfidf(trail_data)
 
 
 def shrink_table(df_trail):
-    df_small = df_trail[['trail_id', 'Altitude change', 'Altitude end', 'Altitude max',
-       'Altitude min','Difficulty rating','Global Ranking','distance','description']]
+    df_small = df_trail[['trail_id', 'Difficulty rating', 'rating', 'distance',
+       'climb','descent','description']]
     return df_small
 
 def generate_tables(reclist,input_row):
@@ -51,6 +51,7 @@ def generate_tables(reclist,input_row):
 
 app = dash.Dash()
 
+app.css.append_css({"external_url": "https://codepen.io/chriddyp/pen/bWLwgP.css"})
 
 app.layout = html.Div([
     html.H1('Rec & Ride'),
@@ -59,14 +60,14 @@ app.layout = html.Div([
         type='text',
         placeholder='trail name',
         ),
-    html.Button('Submit', id='button'),
+    html.Button('Submit', id='button-primary'),
     html.Div(id='output-recommendation')
 ])
 
 
 @app.callback(
     dash.dependencies.Output('output-recommendation', 'children'),
-    [dash.dependencies.Input('button', 'n_clicks')],
+    [dash.dependencies.Input('button-primary', 'n_clicks')],
     [dash.dependencies.State('favorite-trail', 'value')])
 def update_output_rec(n_clicks,value):
     reclist,input_row = get_recommendations(trail_data,value,indices,cosine_sim)
