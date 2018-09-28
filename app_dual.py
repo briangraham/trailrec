@@ -47,21 +47,8 @@ def generate_tables(reclist,input_row):
             ])
         rec_description = html.Tr(html.Td(desc,colSpan='2'))
         table.append(html.Tr(html.Td(html.Table([rec_graphics,rec_description]))))
-
+        
     output = html.Div(html.Table(table))
-                
-                        # Body
-                        #[html.Tr([
-                        #    html.Td(html.A(input_row.iloc[i][col],href = 'https://www.trailforks.com/trails/'+input_row.iloc[i][col]+'/')) if col == 'Trail ID' else html.Td(input_row.iloc[i][col]) for col in input_row.columns
-                        #    ]) for i in range(len(input_row))] +
-                        
-                        #[html.Tr([html.Th(col) for col in reclist.columns])] +
-                
-                        # Body
-                        #[html.Tr([
-                        #    html.Td(html.A(reclist.iloc[i][col],href = 'https://www.trailforks.com/trails/'+reclist.iloc[i][col]+'/')) if col == 'Trail ID' else html.Td(reclist.iloc[i][col]) for col in reclist.columns
-                        #    ]) for i in range(len(reclist))]
-            
     return output
 
 
