@@ -18,7 +18,8 @@ def get_trail_data():
     trail_data = trail_data.reset_index()
     # reverse map trail names to indices
     indices = pd.Series(trail_data.index, index=trail_data['trail_id'])
-    
+    df_ids = pd.read_csv('trail_id_nums.csv')
+    trail_data['trail_num'] = df_ids['trail_num']
     return trail_data,indices
 
 def clean_ft(col):
@@ -45,21 +46,22 @@ def convert_ft_mi(series):
     return newcol
 
 def get_clean_data(trail_data):
-    trail_data['Difficulty rating'] = trail_data['Difficulty rating'].str.replace('rate','')
-    trail_data['Global Ranking'] = trail_data['Global Ranking'].str.replace('#','')
-    trail_data['Riding area'] = trail_data['Riding area'].str.replace(', British Columbia','')
-    trail_data['Riding area'] = trail_data.apply(lambda x: x['Riding area'].replace(x['city'],'',1),axis=1)
+    trail_data_clean = trail_data.copy()
+    trail_data_clean['Difficulty rating'] = trail_data_clean['Difficulty rating'].str.replace('rate','')
+    trail_data_clean['Global Ranking'] = trail_data_clean['Global Ranking'].str.replace('#','')
+    trail_data_clean['Riding area'] = trail_data_clean['Riding area'].str.replace(', British Columbia','')
+    trail_data_clean['Riding area'] = trail_data_clean.apply(lambda x: x['Riding area'].replace(x['city'],'',1),axis=1)
     
     ft_clean = ['Altitude change','Altitude end','Altitude max','Altitude min','Altitude start','climb','descent']
     for col in ft_clean:
-        trail_data[col] = clean_ft(trail_data[col])
+        trail_data_clean[col] = clean_ft(trail_data_clean[col])
         
     per = ['Grade','Grade max','Grade min']
     for col in per:
-        trail_data[col] = clean_grades(trail_data[col])
+        trail_data_clean[col] = clean_grades(trail_data_clean[col])
         
     ft_or_mi = ['distance','Distance climb','Distance down','Distance flat']
     for measure in ft_or_mi:
-        trail_data[measure] = convert_ft_mi(trail_data[measure])
+        trail_data_clean[measure] = convert_ft_mi(trail_data_clean[measure])
     
-    return trail_data
+    return trail_data_clean
