@@ -19,7 +19,8 @@ def get_trail_data():
     # reverse map trail names to indices
     indices = pd.Series(trail_data.index, index=trail_data['trail_id'])
     df_ids = pd.read_csv('trail_id_nums.csv')
-    trail_data['trail_num'] = df_ids['trail_num']
+    df_ids = df_ids.set_index('trail_data')[['trail_num']]
+    trail_data = trail_data.merge(df_ids,left_on='trail_id',right_on='trail_data')
     return trail_data,indices
 
 def clean_ft(col):

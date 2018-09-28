@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import dash
+import base64
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
@@ -13,6 +14,8 @@ cosine_sim = model_tfidf_num_cat(trail_data_clean)
 #cosine_sim = model_tfidf_num(trail_data)
 #cosine_sim = model_tfidf_cat(trail_data)
 
+# Load background image
+bg_image = base64.b64encode(open('mtb_background.jpg', 'rb').read())
 
 def shrink_table(reclist,trail_data):
     df_small = trail_data.loc[reclist['index'],['trail_id','description','trail_num']]
@@ -65,17 +68,30 @@ def generate_tables(reclist,input_row):
 app = dash.Dash(__name__)
 
 app.css.append_css({"external_url": "https://codepen.io/chriddyp/pen/bWLwgP.css"})
+app.title = 'Rec&Ride'
 
 app.layout = html.Div([
+    html.Div([html.H1('Rec & Ride',style = {'textAlign': 'center'}),
+              html.H2('MTB Trail Recommender',style = {'textAlign': 'center'})]),
     
-    html.H1('Rec & Ride'),
-    dcc.Input(
-        id='favorite-trail',
-        type='text',
-        placeholder='trail name',
-        ),
-    html.Button('Submit', id='button-primary'),
-    html.Div(id='output-recommendation')
+    html.Div(html.Img(src='data:image/jpeg;base64,{}'.format(bg_image.decode('ascii')),
+                      style = {'width':'100%', 'padding':'0','margin':'0','box-sizing':'border-box'})),
+                      
+    html.H3('Enter your favorite trail or your username:', style = {'margin':'auto', 'display':'block', 'margin-top':'50px', 
+                                               'margin-bottom':'10px','text-align':'center'},
+           id='prompt-text'),
+    html.Div([
+        dcc.Input(
+            id='favorite-trail',
+            type='text',
+            placeholder='trail name or username',
+            style = {'margin':'auto','display':'block'}),
+        html.Button('Submit', id='button-primary',
+                    style = {'margin':'auto', 'margin-top':'10px','display':'block', 'margin-bottom':'50px'}),
+        html.Div(id='output-recommendation',
+                    style = {'margin':'auto', 'display':'block'})
+    ],
+    style = {'width':'100%','margin':'auto', 'display':'block'})
 ])
 
 
