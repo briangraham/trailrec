@@ -4,7 +4,16 @@ from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler,OneHotEncoder,LabelBinarizer
 
-def get_recommendations(trail_data,trail_id,indices,cosine_sim):
+
+def get_data_from_file():
+    trail_data = pd.read_pickle('trail_data.pickle')
+    trail_data_clean = pd.read_pickle('trail_data_clean.pickle')
+    indices = pd.read_pickle('indices.pickle')
+    cosine_sim = pd.read_pickle('cosine_sim.pickle')
+    df_top_ten = pd.read_pickle('top_10_rider_recs.pickle')
+    return trail_data,indices,trail_data_clean,cosine_sim
+
+def get_recs_cosine(trail_data,trail_id,indices,cosine_sim):
     idx = indices[trail_id]
     
     # Get the pairwsie similarity scores of all trails with that trail
@@ -21,6 +30,12 @@ def get_recommendations(trail_data,trail_id,indices,cosine_sim):
     
     input_data = trail_data.iloc[[indices[trail_id]]]
     return trail_data.iloc[trail_indices],input_data
+
+def get_recs_collab(df_top_ten,user_entry):
+    df_user = df_collab[df_collab['uid'] == user_entry]
+    df_user = df_user.sort_values('rank')
+    user_recs = df_user['iid']
+    return user_recs
 
 def model_tfidf(trail_data):
     #vectorize
