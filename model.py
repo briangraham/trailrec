@@ -11,6 +11,7 @@ def get_data_from_file():
     indices = pd.read_pickle('indices.pickle')
     cosine_sim = pd.read_pickle('cosine_sim.pickle')
     df_top_ten = pd.read_pickle('top_10_rider_recs.pickle')
+    df_top_ten = pd.read_pickle('top_10_rider_recs.pickle')
     return trail_data,indices,trail_data_clean,cosine_sim
 
 def get_recs_cosine(trail_data,trail_id,indices,cosine_sim):

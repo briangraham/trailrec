@@ -4,11 +4,31 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import base64
-from model import get_recs_cosine,model_tfidf_num_cat, get_data_from_file
 
-#Load data as soon as the app starts up
-trail_data,indices,trail_data_clean,cosine_sim = get_data_from_file()
-bg_image = base64.b64encode(open('mtb_background.jpg', 'rb').read())
+def get_data_from_file():
+    trail_data = pd.read_pickle('trail_data.pickle')
+    trail_data_clean = pd.read_pickle('trail_data_clean.pickle')
+    indices = pd.read_pickle('indices.pickle')
+    cosine_sim = pd.read_pickle('cosine_sim.pickle')
+    df_top_ten = pd.read_pickle('top_10_rider_recs.pickle')
+    return trail_data,indices,trail_data_clean,cosine_sim
+
+
+def get_recs_cosine(trail_data,trail_id,indices,cosine_sim):
+    idx = indices[trail_id]
+    # Get the pairwsie similarity scores of all trails with that trail
+    sim_scores = list(enumerate(cosine_sim[idx]))    
+    # Sort trails using similarity scores
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)    
+    # 10 most similar trails
+    sim_scores = sim_scores[1:11]    
+    # Get trails
+    trail_indices = [i[0] for i in sim_scores]    
+    input_data = trail_data.iloc[[indices[trail_id]]]
+    return trail_data.iloc[trail_indices],input_data
+
+
+
 
 def shrink_table(reclist,trail_data):
      df_small = trail_data.loc[reclist['index'],['trail_id','rating', 'distance','climb','descent','description','trail_num']]     
@@ -18,7 +38,14 @@ def shrink_table(reclist,trail_data):
         'Climb','Descent','Description','trail_num']
      return df_small
 
-def generate_tables(reclist,input_row):
+def parse_input(user_input):
+    clean_input = user_input.replace('https://www.trailforks.com/trails/','')
+    clean_input = clean_input.replace('/','')
+    clean_input = clean_input.replace(' ','-')
+    clean_input = clean_input.lower()
+    return clean_input
+
+def generate_tables_cosine_rec(reclist,input_row):
     page = []
     
     # widget specs
@@ -26,32 +53,6 @@ def generate_tables(reclist,input_row):
     wig_height = '325'
     map_height = '325'
     
-    # Table
-#    input_row_table = input_row.drop(['trail_num'], axis=1)
-#    reclist_table = reclist.drop(['trail_num'], axis=1)
-#    tabular_results = html.Div([ 
-#            html.Table(
-#                [html.Tr(html.Td(html.H6('Your Entry'),colSpan='7'))] +
-#                # Header
-#                [html.Tr([html.Th(col) for col in input_row_table.columns])] +
-#        
-#                # Body
-#                [html.Tr([
-#                    html.Td(html.A(input_row_table.iloc[i][col],href = 'https://www.trailforks.com/trails/'+input_row_table.iloc[i][col]+'/')) if col == 'Trail ID' else html.Td(input_row_table.iloc[i][col]) for col in input_row_table.columns
-#                    ]) for i in range(len(input_row_table))] +
-#                [html.Tr(html.Td(html.H6('Personalized Recommendations'),colSpan='8'))]+
-#                [html.Tr([html.Th(col) for col in reclist_table.columns])] +
-#        
-#                # Body
-#                [html.Tr([
-#                    html.Td(html.A(reclist_table.iloc[i][col],href = 'https://www.trailforks.com/trails/'+reclist_table.iloc[i][col]+'/')) if col == 'Trail ID' else html.Td(reclist_table.iloc[i][col]) for col in reclist_table.columns
-#                    ]) for i in range(len(reclist_table))]
-#                )
-#        ])
-#         
-#    page.append(tabular_results)
-    #page.append(html.H3(' '))
-    #page.append(html.H3('More Details'))
     
     graphical_results = []
     graphical_results.append(html.Tr(html.Td(html.H5('Your Entry'),colSpan='2')))
@@ -76,9 +77,20 @@ def generate_tables(reclist,input_row):
         graphical_results.append(html.Tr(html.Td(desc,colSpan='2')))
         
     page.append(html.Div(html.Table(graphical_results)))
-    output = page
-    return output
+    return page
 
+def generate_error_message():
+    html_ouput = html.Div([
+            html.H4('Hmmm...we cannot find that trail or user.'),
+                     ('Try copying and entering the url of the trail page from Trailforks.com or check the spelling of your username.  '),
+                     ('Also, this proof of concept trail recommender is currently to a subset of trails from British Columbia, Canada which have descriptions.  It is also limited to users who have ridden these trails')],style = {'text-align': 'center'})
+    
+    return html_ouput
+
+
+#Load data as soon as the app starts up
+trail_data,indices,trail_data_clean,cosine_sim = get_data_from_file()
+bg_image = base64.b64encode(open('mtb_background.jpg', 'rb').read())
 
 app = dash.Dash(__name__)
 
@@ -111,21 +123,19 @@ app.layout = html.Div([
     style = {'width':'100%','margin':'auto', 'display':'block'})
 ])
 
-
 @app.callback(
     dash.dependencies.Output('output-recommendation', 'children'),
     [dash.dependencies.Input('button-primary', 'n_clicks')],
     [dash.dependencies.State('favorite-trail', 'value')])
 def update_output_rec(n_clicks,value):
-    value = value.replace('https://www.trailforks.com/trails/','')
-    value = value.replace('/','')
-    value = value.replace(' ','-')
-    value = value.lower()
-    reclist,input_row = get_recs_cosine(trail_data_clean,value,indices,cosine_sim)
-    reclist = shrink_table(reclist,trail_data)
-    input_row = shrink_table(input_row,trail_data)
-    return generate_tables(reclist,input_row)
-
-
+    clean_input = parse_input(value)
+    if trail_data_clean['trail_id'].str.contains(clean_input).any():
+        reclist,input_row = get_recs_cosine(trail_data_clean,clean_input,indices,cosine_sim)
+        reclist = shrink_table(reclist,trail_data)
+        input_row = shrink_table(input_row,trail_data)
+        return generate_tables_cosine_rec(reclist,input_row)
+    else:
+        return generate_error_message()
+    
 if __name__ == '__main__':
     app.run_server(host="0.0.0.0")
