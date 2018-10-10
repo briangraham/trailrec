@@ -4,13 +4,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler,OneHotEncoder,LabelBinarizer
 
+#maybe use a class?
 
 def get_data_from_file():
+    # read file locations as a paramter or config file
     trail_data = pd.read_pickle('trail_data.pickle')
     trail_data_clean = pd.read_pickle('trail_data_clean.pickle')
     indices = pd.read_pickle('indices.pickle')
     cosine_sim = pd.read_pickle('cosine_sim.pickle')
-    df_top_ten = pd.read_pickle('top_10_rider_recs.pickle')
     df_top_ten = pd.read_pickle('top_10_rider_recs.pickle')
     return trail_data,indices,trail_data_clean,cosine_sim
 
